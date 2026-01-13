@@ -40,6 +40,16 @@ export interface AuthStatusOptions extends LoggerOptions {
 }
 
 /**
+ * Options for setting up git credential helper
+ */
+export interface SetupGitOptions extends LoggerOptions {
+  /** GitLab instance hostname (default: 'gitlab.com') */
+  hostname?: string;
+  /** Force setup by overwriting existing credential helper config (default: false) */
+  force?: boolean;
+}
+
+/**
  * Options for getting user information
  */
 export interface UserInfoOptions extends LoggerOptions {
@@ -97,12 +107,40 @@ export declare const defaultAuthOptions: {
 };
 
 /**
+ * Get the full path to the glab executable
+ *
+ * This function dynamically detects the glab installation path
+ * without depending on any specific installation method.
+ *
+ * @param options - Logger options
+ * @returns Full path to glab executable
+ * @throws Error if glab is not found
+ */
+export declare function getGlabPath(options?: LoggerOptions): Promise<string>;
+
+/**
  * Run glab auth login interactively
  * @param options - Authentication options
  * @returns True if login was successful
  */
 export declare function runGlabAuthLogin(
   options?: AuthOptions
+): Promise<boolean>;
+
+/**
+ * Run glab auth setup-git equivalent to configure git to use GitLab CLI as credential helper
+ *
+ * Unlike GitHub CLI which has `gh auth setup-git`, GitLab CLI doesn't have an equivalent command.
+ * This function manually configures git to use `glab auth git-credential` as the credential helper
+ * for GitLab HTTPS operations.
+ *
+ * Without this, git push/pull may fail with "could not read Username" error when using HTTPS protocol.
+ *
+ * @param options - Setup options
+ * @returns True if setup was successful
+ */
+export declare function runGlabAuthSetupGit(
+  options?: SetupGitOptions
 ): Promise<boolean>;
 
 /**
@@ -192,8 +230,10 @@ export declare function verifyGitIdentity(
  */
 declare const _default: {
   defaultAuthOptions: typeof defaultAuthOptions;
+  getGlabPath: typeof getGlabPath;
   isGlabAuthenticated: typeof isGlabAuthenticated;
   runGlabAuthLogin: typeof runGlabAuthLogin;
+  runGlabAuthSetupGit: typeof runGlabAuthSetupGit;
   getGitLabUsername: typeof getGitLabUsername;
   getGitLabEmail: typeof getGitLabEmail;
   getGitLabUserInfo: typeof getGitLabUserInfo;

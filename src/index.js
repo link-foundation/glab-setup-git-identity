@@ -122,6 +122,41 @@ export const defaultAuthOptions = {
 };
 
 /**
+ * Get the full path to the glab executable
+ *
+ * This function dynamically detects the glab installation path
+ * without depending on any specific installation method.
+ *
+ * @param {Object} options - Options
+ * @param {boolean} options.verbose - Enable verbose logging
+ * @param {Object} options.logger - Custom logger
+ * @returns {Promise<string>} Full path to glab executable
+ * @throws {Error} If glab is not found
+ */
+export async function getGlabPath(options = {}) {
+  const { verbose = false, logger = console } = options;
+  const log = createDefaultLogger({ verbose, logger });
+
+  log.debug('Detecting glab installation path...');
+
+  // Use 'which' on Unix-like systems or 'where' on Windows
+  const command = process.platform === 'win32' ? 'where' : 'which';
+  const result = await execCommand(command, ['glab']);
+
+  if (result.exitCode !== 0 || !result.stdout) {
+    throw new Error(
+      'glab CLI not found. Please install glab: https://gitlab.com/gitlab-org/cli#installation'
+    );
+  }
+
+  // Get the first line (in case multiple paths are returned)
+  const glabPath = result.stdout.split('\n')[0].trim();
+  log.debug(`Found glab at: ${glabPath}`);
+
+  return glabPath;
+}
+
+/**
  * Run glab auth login interactively
  *
  * @param {Object} options - Options
@@ -182,6 +217,101 @@ export async function runGlabAuthLogin(options = {}) {
 
   log.log('\nGitLab CLI authentication successful!');
   return true;
+}
+
+/**
+ * Run glab auth setup-git equivalent to configure git to use GitLab CLI as credential helper
+ *
+ * Unlike GitHub CLI which has `gh auth setup-git`, GitLab CLI doesn't have an equivalent command.
+ * This function manually configures git to use `glab auth git-credential` as the credential helper
+ * for GitLab HTTPS operations.
+ *
+ * Without this, git push/pull may fail with "could not read Username" error when using HTTPS protocol.
+ *
+ * @param {Object} options - Options
+ * @param {string} options.hostname - GitLab hostname (default: 'gitlab.com')
+ * @param {boolean} options.force - Force setup by overwriting existing credential helper config (default: false)
+ * @param {boolean} options.verbose - Enable verbose logging
+ * @param {Object} options.logger - Custom logger
+ * @returns {Promise<boolean>} True if setup was successful
+ */
+export async function runGlabAuthSetupGit(options = {}) {
+  const {
+    hostname = defaultAuthOptions.hostname,
+    force = false,
+    verbose = false,
+    logger = console,
+  } = options;
+
+  const log = createDefaultLogger({ verbose, logger });
+
+  log.debug('Configuring git credential helper for GitLab CLI...');
+
+  try {
+    // Get the full path to glab executable
+    const glabPath = await getGlabPath({ verbose, logger });
+
+    // Build the credential helper URL based on hostname
+    const credentialUrl = `https://${hostname}`;
+
+    // The credential helper command - uses the dynamically detected glab path
+    const credentialHelper = `!${glabPath} auth git-credential`;
+
+    // Check if there's an existing credential helper for this host
+    const existingHelper = await execCommand('git', [
+      'config',
+      '--global',
+      '--get',
+      `credential.${credentialUrl}.helper`,
+    ]);
+
+    if (existingHelper.exitCode === 0 && existingHelper.stdout && !force) {
+      log.debug(
+        `Existing credential helper found for ${hostname}: ${existingHelper.stdout}`
+      );
+      log.log(
+        `Git credential helper already configured for ${hostname}. Use force: true to overwrite.`
+      );
+      return true;
+    }
+
+    // First, clear any existing credential helpers for this host
+    // This ensures we have a clean state
+    log.debug(`Clearing existing credential helpers for ${credentialUrl}...`);
+
+    // Set an empty helper first to clear the chain (ignore errors if not set)
+    await execCommand('git', [
+      'config',
+      '--global',
+      `credential.${credentialUrl}.helper`,
+      '',
+    ]);
+
+    // Add the glab credential helper
+    log.debug(`Setting credential helper: ${credentialHelper}`);
+
+    const result = await execCommand('git', [
+      'config',
+      '--global',
+      '--add',
+      `credential.${credentialUrl}.helper`,
+      credentialHelper,
+    ]);
+
+    if (result.exitCode !== 0) {
+      log.error(`Failed to set git credential helper: ${result.stderr}`);
+      return false;
+    }
+
+    log.log(`Git credential helper configured for ${hostname}`);
+    log.debug(`  URL: ${credentialUrl}`);
+    log.debug(`  Helper: ${credentialHelper}`);
+
+    return true;
+  } catch (error) {
+    log.error(`Failed to setup git credential helper: ${error.message}`);
+    return false;
+  }
 }
 
 /**
@@ -435,8 +565,10 @@ export async function verifyGitIdentity(options = {}) {
 
 export default {
   defaultAuthOptions,
+  getGlabPath,
   isGlabAuthenticated,
   runGlabAuthLogin,
+  runGlabAuthSetupGit,
   getGitLabUsername,
   getGitLabEmail,
   getGitLabUserInfo,

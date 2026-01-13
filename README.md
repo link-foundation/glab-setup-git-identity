@@ -47,6 +47,7 @@ git clone https://gitlab.com/your-username/your-repo
 import {
   isGlabAuthenticated,
   runGlabAuthLogin,
+  runGlabAuthSetupGit,
   setupGitIdentity,
   verifyGitIdentity,
 } from 'glab-setup-git-identity';
@@ -58,6 +59,10 @@ if (!authenticated) {
   // Run interactive login
   await runGlabAuthLogin();
 }
+
+// Setup git credential helper for GitLab HTTPS operations
+// This configures git to use glab for authentication when pushing/pulling
+await runGlabAuthSetupGit();
 
 // Setup git identity from GitLab account
 const { username, email } = await setupGitIdentity();
@@ -98,6 +103,36 @@ await runGlabAuthLogin({
   gitProtocol: 'https', // 'ssh', 'https', or 'http'
   useKeyring: true, // store token in OS keyring
 });
+```
+
+#### `runGlabAuthSetupGit(options?)`
+
+Configure git to use GitLab CLI as a credential helper for HTTPS operations. This is the equivalent of `gh auth setup-git` for GitHub CLI.
+
+Without this configuration, `git push/pull` may fail with "could not read Username" error when using HTTPS protocol.
+
+```javascript
+// Setup credential helper for gitlab.com
+await runGlabAuthSetupGit();
+
+// Setup for self-hosted GitLab
+await runGlabAuthSetupGit({
+  hostname: 'gitlab.company.com',
+  force: true, // overwrite existing configuration
+  verbose: true,
+});
+```
+
+The function automatically detects the glab installation path, so it works regardless of how glab was installed (Homebrew, apt, npm, etc.).
+
+#### `getGlabPath(options?)`
+
+Get the full path to the glab executable. Useful for debugging or custom integrations.
+
+```javascript
+const glabPath = await getGlabPath();
+console.log(`glab is installed at: ${glabPath}`);
+// e.g., /opt/homebrew/bin/glab, /usr/bin/glab, etc.
 ```
 
 ### User Information Functions
@@ -213,6 +248,7 @@ This package includes TypeScript type definitions. All interfaces are exported:
 import type {
   AuthOptions,
   AuthStatusOptions,
+  SetupGitOptions,
   UserInfoOptions,
   GitConfigOptions,
   SetupOptions,

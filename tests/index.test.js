@@ -9,6 +9,8 @@ import {
   getGitConfig,
   setGitConfig,
   verifyGitIdentity,
+  getGlabPath,
+  runGlabAuthSetupGit,
 } from '../src/index.js';
 
 describe('defaultAuthOptions', () => {
@@ -82,6 +84,36 @@ describe('verifyGitIdentity', () => {
     expect(identity.email === null || typeof identity.email === 'string').toBe(
       true
     );
+  });
+});
+
+describe('getGlabPath', () => {
+  it('should be a function', () => {
+    expect(typeof getGlabPath).toBe('function');
+  });
+
+  it('should return a promise', () => {
+    // We can't test the actual path without glab installed,
+    // but we can verify it returns a promise
+    const result = getGlabPath();
+    expect(result instanceof Promise).toBe(true);
+    // Clean up the promise (it may reject if glab is not installed)
+    result.catch(() => {});
+  });
+});
+
+describe('runGlabAuthSetupGit', () => {
+  it('should be a function', () => {
+    expect(typeof runGlabAuthSetupGit).toBe('function');
+  });
+
+  it('should return a promise', () => {
+    // We can't test the actual setup without glab installed,
+    // but we can verify it returns a promise
+    const result = runGlabAuthSetupGit();
+    expect(result instanceof Promise).toBe(true);
+    // Clean up the promise (it may reject if glab is not installed)
+    result.catch(() => {});
   });
 });
 
