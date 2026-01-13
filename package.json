@@ -1,7 +1,7 @@
 {
-  "name": "my-package",
+  "name": "glab-setup-git-identity",
   "version": "0.4.0",
-  "description": "A JavaScript/TypeScript package template for AI-driven development",
+  "description": "Setup git identity using GitLab CLI (glab) - Configure git user.name and user.email from your GitLab account",
   "type": "module",
   "main": "src/index.js",
   "types": "src/index.d.ts",
@@ -26,16 +26,21 @@
     "changeset:status": "changeset status --since=origin/main"
   },
   "keywords": [
-    "template",
-    "javascript",
-    "typescript",
-    "ai-driven"
+    "gitlab",
+    "glab",
+    "git",
+    "identity",
+    "setup",
+    "cli",
+    "git-config",
+    "user-name",
+    "user-email"
   ],
   "author": "",
   "license": "Unlicense",
   "repository": {
     "type": "git",
-    "url": "https://github.com/link-foundation/js-ai-driven-development-pipeline-template"
+    "url": "https://github.com/konard/glab-setup-git-identity"
   },
   "engines": {
     "node": ">=20.0.0"

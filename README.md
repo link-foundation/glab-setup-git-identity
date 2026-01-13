@@ -1,196 +1,269 @@
-# js-ai-driven-development-pipeline-template
+# glab-setup-git-identity
 
-A comprehensive template for AI-driven JavaScript/TypeScript development with full CI/CD pipeline support.
+Setup git identity using GitLab CLI (glab) - Configure `git user.name` and `user.email` from your GitLab account.
 
-## Features
+Similar to [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) but for GitLab.
 
-- **Multi-runtime support**: Works with Bun, Node.js, and Deno
-- **Universal testing**: Uses [test-anywhere](https://github.com/link-foundation/test-anywhere) for cross-runtime tests
-- **Automated releases**: Changesets-based versioning with GitHub Actions
-- **Code quality**: ESLint + Prettier with pre-commit hooks via Husky
-- **Package manager agnostic**: Works with bun, npm, yarn, pnpm, and deno
+## Prerequisites
+
+- [GitLab CLI (glab)](https://gitlab.com/gitlab-org/cli) installed
+- Authenticated with GitLab via `glab auth login`
+
+## Installation
+
+```bash
+# Using npm
+npm install glab-setup-git-identity
+
+# Using bun
+bun install glab-setup-git-identity
+
+# Using yarn
+yarn add glab-setup-git-identity
+
+# Using pnpm
+pnpm add glab-setup-git-identity
+```
 
 ## Quick Start
 
-### Using This Template
-
-1. Click "Use this template" on GitHub to create a new repository
-2. Clone your new repository
-3. Update `package.json` with your package name and description
-4. Update the `PACKAGE_NAME` constant in these scripts:
-   - `scripts/validate-changeset.mjs`
-   - `scripts/merge-changesets.mjs`
-   - `scripts/publish-to-npm.mjs`
-   - `scripts/format-release-notes.mjs`
-   - `scripts/create-manual-changeset.mjs`
-5. Install dependencies: `bun install`
-6. Start developing!
-
-### Development
+### Manual Setup (using glab directly)
 
 ```bash
-# Install dependencies
-bun install
+# Install glab CLI
+brew install glab  # macOS
+# or see https://gitlab.com/gitlab-org/cli#installation for other platforms
 
-# Run tests
-bun test
+# Authenticate with GitLab
+glab auth login
 
-# Or with other runtimes:
-npm test
-deno test --allow-read
-
-# Lint code
-bun run lint
-
-# Format code
-bun run format
-
-# Check all (lint + format + file size)
-bun run check
+# Clone a repository
+git clone https://gitlab.com/your-username/your-repo
 ```
 
-## Project Structure
+### Using this library
 
+```javascript
+import {
+  isGlabAuthenticated,
+  runGlabAuthLogin,
+  runGlabAuthSetupGit,
+  setupGitIdentity,
+  verifyGitIdentity,
+} from 'glab-setup-git-identity';
+
+// Check if already authenticated
+const authenticated = await isGlabAuthenticated();
+
+if (!authenticated) {
+  // Run interactive login
+  await runGlabAuthLogin();
+}
+
+// Setup git credential helper for GitLab HTTPS operations
+// This configures git to use glab for authentication when pushing/pulling
+await runGlabAuthSetupGit();
+
+// Setup git identity from GitLab account
+const { username, email } = await setupGitIdentity();
+console.log(`Configured git as: ${username} <${email}>`);
+
+// Verify the configuration
+const identity = await verifyGitIdentity();
+console.log('Current git identity:', identity);
 ```
-.
-├── .changeset/           # Changeset configuration
-├── .github/workflows/    # GitHub Actions CI/CD
-├── .husky/               # Git hooks (pre-commit)
-├── examples/             # Usage examples
-├── scripts/              # Build and release scripts
-├── src/                  # Source code
-│   ├── index.js          # Main entry point
-│   └── index.d.ts        # TypeScript definitions
-├── tests/                # Test files
-├── .eslintrc.js          # ESLint configuration
-├── .prettierrc           # Prettier configuration
-├── bunfig.toml           # Bun configuration
-├── deno.json             # Deno configuration
-└── package.json          # Node.js package manifest
+
+## API Reference
+
+### Authentication Functions
+
+#### `isGlabAuthenticated(options?)`
+
+Check if GitLab CLI is authenticated.
+
+```javascript
+const authenticated = await isGlabAuthenticated({
+  hostname: 'gitlab.company.com', // optional, for self-hosted GitLab
+  verbose: true, // optional, enable debug logging
+});
 ```
 
-## Design Choices
+#### `runGlabAuthLogin(options?)`
 
-### Multi-Runtime Support
+Run `glab auth login` interactively or with a token.
 
-This template is designed to work seamlessly with all major JavaScript runtimes:
+```javascript
+// Interactive login
+await runGlabAuthLogin();
 
-- **Bun**: Primary runtime with highest performance, uses native test support (`bun test`)
-- **Node.js**: Alternative runtime, uses built-in test runner (`node --test`)
-- **Deno**: Secure runtime with built-in TypeScript support (`deno test`)
+// Login with token (non-interactive)
+await runGlabAuthLogin({
+  hostname: 'gitlab.com',
+  token: 'your-access-token',
+  gitProtocol: 'https', // 'ssh', 'https', or 'http'
+  useKeyring: true, // store token in OS keyring
+});
+```
 
-The [test-anywhere](https://github.com/link-foundation/test-anywhere) framework provides a unified testing API that works identically across all runtimes.
+#### `runGlabAuthSetupGit(options?)`
 
-### Package Manager Agnostic
+Configure git to use GitLab CLI as a credential helper for HTTPS operations. This is the equivalent of `gh auth setup-git` for GitHub CLI.
 
-While `package.json` is the source of truth for dependencies, the template supports:
+Without this configuration, `git push/pull` may fail with "could not read Username" error when using HTTPS protocol.
 
-- **bun**: Primary choice, uses `bun.lockb`
-- **npm**: Uses `package-lock.json`
-- **yarn**: Uses `yarn.lock`
-- **pnpm**: Uses `pnpm-lock.yaml`
-- **deno**: Uses `deno.json` for configuration
+```javascript
+// Setup credential helper for gitlab.com
+await runGlabAuthSetupGit();
 
-Note: `package-lock.json` is not committed by default to allow any package manager.
+// Setup for self-hosted GitLab
+await runGlabAuthSetupGit({
+  hostname: 'gitlab.company.com',
+  force: true, // overwrite existing configuration
+  verbose: true,
+});
+```
 
-### Code Quality
+The function automatically detects the glab installation path, so it works regardless of how glab was installed (Homebrew, apt, npm, etc.).
 
-- **ESLint**: Configured with recommended rules + Prettier integration
-- **Prettier**: Consistent code formatting
-- **Husky + lint-staged**: Pre-commit hooks ensure code quality
-- **File size limit**: Scripts must stay under 1000 lines for maintainability
+#### `getGlabPath(options?)`
 
-### Release Workflow
+Get the full path to the glab executable. Useful for debugging or custom integrations.
 
-The release workflow uses [Changesets](https://github.com/changesets/changesets) for version management:
+```javascript
+const glabPath = await getGlabPath();
+console.log(`glab is installed at: ${glabPath}`);
+// e.g., /opt/homebrew/bin/glab, /usr/bin/glab, etc.
+```
 
-1. **Creating a changeset**: Run `bun run changeset` to document changes
-2. **PR validation**: CI checks for valid changeset in each PR
-3. **Automated versioning**: Merging to `main` triggers version bump
-4. **npm publishing**: Automated via OIDC trusted publishing (no tokens needed)
-5. **GitHub releases**: Auto-created with formatted release notes
+### User Information Functions
 
-#### Manual Releases
+#### `getGitLabUsername(options?)`
 
-Two manual release modes are available via GitHub Actions:
+Get the authenticated GitLab username.
 
-- **Instant release**: Immediately bump version and publish
-- **Changeset PR**: Create a PR with changeset for review
+```javascript
+const username = await getGitLabUsername();
+```
 
-### CI/CD Pipeline
+#### `getGitLabEmail(options?)`
 
-The GitHub Actions workflow (`.github/workflows/release.yml`) provides:
+Get the primary email from the GitLab account.
 
-1. **Changeset check**: Validates PR has exactly one changeset (added by that PR)
-2. **Lint & format**: Ensures code quality standards
-3. **Test matrix**: 3 runtimes × 3 OS = 9 test combinations
-4. **Changeset merge**: Combines multiple pending changesets at release time
-5. **Release**: Automated versioning and npm publishing
+```javascript
+const email = await getGitLabEmail();
+```
 
-#### Robust Changeset Handling
+#### `getGitLabUserInfo(options?)`
 
-The CI/CD pipeline is designed to handle concurrent PRs gracefully:
+Get both username and email.
 
-- **PR Validation**: Only validates changesets **added by the current PR**, not pre-existing ones from other merged PRs. This prevents false failures when multiple PRs merge before a release cycle completes.
+```javascript
+const { username, email } = await getGitLabUserInfo({
+  hostname: 'gitlab.company.com', // optional
+});
+```
 
-- **Release-time Merging**: If multiple changesets exist when releasing, they are automatically merged into a single changeset with:
-  - The highest version bump type (major > minor > patch)
-  - All descriptions preserved in chronological order
+### Git Configuration Functions
 
-This design decouples PR validation from the need to pull changes from the default branch, reducing conflicts and ensuring that even if CI/CD fails, all unpublished changesets will still get published when the error is resolved.
+#### `setGitConfig(key, value, options?)`
 
-## Configuration
+Set a git configuration value.
 
-### Updating Package Name
+```javascript
+await setGitConfig('user.name', 'John Doe', {
+  scope: 'global', // or 'local'
+});
+```
 
-After creating a repository from this template, update the package name in:
+#### `getGitConfig(key, options?)`
 
-1. `package.json`: `"name": "your-package-name"`
-2. `.changeset/config.json`: Package references
-3. Scripts that reference the package name (see Quick Start)
+Get a git configuration value.
 
-### ESLint Rules
+```javascript
+const name = await getGitConfig('user.name', {
+  scope: 'global', // or 'local'
+});
+```
 
-Customize ESLint in `eslint.config.js`. Current configuration:
+### Identity Setup Functions
 
-- ES Modules support
-- Prettier integration
-- No console restrictions (common in CLI tools)
-- Strict equality enforcement
-- Async/await best practices
-- **Strict unused variables rule**: No exceptions - all unused variables, arguments, and caught errors must be removed (no `_` prefix exceptions)
+#### `setupGitIdentity(options?)`
 
-### Prettier Options
+Configure git identity based on GitLab user.
 
-Configured in `.prettierrc`:
+```javascript
+const { username, email } = await setupGitIdentity({
+  hostname: 'gitlab.com', // optional
+  scope: 'global', // or 'local'
+  dryRun: false, // set to true to preview changes without applying
+  verbose: true, // enable debug logging
+});
+```
 
-- Single quotes
-- Semicolons
-- 2-space indentation
-- 80-character line width
-- ES5 trailing commas
-- LF line endings
+#### `verifyGitIdentity(options?)`
 
-## Scripts Reference
+Get the current git identity configuration.
 
-| Script                 | Description                             |
-| ---------------------- | --------------------------------------- |
-| `bun test`             | Run tests with Bun                      |
-| `bun run lint`         | Check code with ESLint                  |
-| `bun run lint:fix`     | Fix ESLint issues automatically         |
-| `bun run format`       | Format code with Prettier               |
-| `bun run format:check` | Check formatting without changing files |
-| `bun run check`        | Run all checks (lint + format)          |
-| `bun run changeset`    | Create a new changeset                  |
+```javascript
+const { username, email } = await verifyGitIdentity({
+  scope: 'global', // or 'local'
+});
+```
 
-## Contributing
+### Default Options
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Create a changeset: `bun run changeset`
-5. Commit your changes (pre-commit hooks will run automatically)
-6. Push and create a Pull Request
+```javascript
+import { defaultAuthOptions } from 'glab-setup-git-identity';
+
+console.log(defaultAuthOptions);
+// {
+//   hostname: 'gitlab.com',
+//   gitProtocol: 'https',
+//   useKeyring: false
+// }
+```
+
+## Token Requirements
+
+When using token-based authentication, ensure your GitLab access token has the following minimum scopes:
+
+- `api` - Full API access
+- `write_repository` - Push access to repositories
+
+## Self-Hosted GitLab
+
+All functions support the `hostname` option for self-hosted GitLab instances:
+
+```javascript
+await setupGitIdentity({
+  hostname: 'gitlab.company.com',
+});
+```
+
+## TypeScript Support
+
+This package includes TypeScript type definitions. All interfaces are exported:
+
+```typescript
+import type {
+  AuthOptions,
+  AuthStatusOptions,
+  SetupGitOptions,
+  UserInfoOptions,
+  GitConfigOptions,
+  SetupOptions,
+  UserInfo,
+  GitIdentity,
+} from 'glab-setup-git-identity';
+```
+
+## Multi-Runtime Support
+
+This package works with:
+
+- **Node.js** (>=20.0.0)
+- **Bun** (>=1.0.0)
+- **Deno**
 
 ## License
 
