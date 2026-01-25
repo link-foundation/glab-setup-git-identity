@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1
+
+### Patch Changes
+
+- 006215b: Fix Docker/server support and glab --jq compatibility
+  - Fix README.md manual commands to use pipe to jq instead of --jq flag
+  - Add "Authentication in Docker/Server Environments" section to README
+  - Enhance CLI with helpful headless auth instructions
+  - Fix src/index.js to parse JSON in JavaScript for better glab version compatibility
+  - Optimize getGitLabUserInfo to use a single API call
+
 ## 0.6.0
 
 ### Minor Changes

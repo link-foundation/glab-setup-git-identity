@@ -1,6 +1,6 @@
 {
   "name": "glab-setup-git-identity",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "A tool to setup git identity based on current GitLab user",
   "type": "module",
   "main": "src/index.js",
