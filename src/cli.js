@@ -261,6 +261,40 @@ async function handleAlreadyAuthenticated() {
 }
 
 /**
+ * Print headless authentication instructions
+ */
+function printHeadlessAuthInstructions() {
+  console.log('');
+  console.log('=== Authentication in Docker/Server Environments ===');
+  console.log('');
+  console.log(
+    'If you see a browser URL but cannot open it, follow these steps:'
+  );
+  console.log('');
+  console.log('1. Copy the authorization URL displayed above');
+  console.log('2. Open it in your local browser and complete the OAuth flow');
+  console.log(
+    '3. You will be redirected to: http://localhost:7171/auth/redirect?code=...&state=...'
+  );
+  console.log('4. Use curl to send that redirect URL back to glab:');
+  console.log('');
+  console.log(
+    '   curl -L "http://localhost:7171/auth/redirect?code=YOUR_CODE&state=YOUR_STATE"'
+  );
+  console.log('');
+  console.log('Alternatively, use token-based authentication:');
+  console.log('');
+  console.log('1. Generate a Personal Access Token at:');
+  console.log(`   https://${config.hostname}/-/profile/personal_access_tokens`);
+  console.log('   Required scopes: api, write_repository');
+  console.log('');
+  console.log('2. Re-run with your token:');
+  console.log(`   glab-setup-git-identity --token YOUR_TOKEN`);
+  console.log('');
+  console.log('================================================');
+}
+
+/**
  * Handle case when not authenticated
  * @returns {Promise<boolean>} True if login succeeded
  */
@@ -268,14 +302,27 @@ async function handleNotAuthenticated() {
   console.log('GitLab CLI is not authenticated. Starting authentication...');
   console.log('');
 
+  // Print headless instructions before attempting auth
+  // This helps users in Docker/server environments know what to do
+  printHeadlessAuthInstructions();
+  console.log('');
+
   const loginSuccess = await runGlabAuthLogin(getAuthOptions());
 
   if (!loginSuccess) {
     console.log('');
-    console.log('Authentication failed. Please try running manually:');
+    console.log('Authentication failed. Please try one of the following:');
+    console.log('');
+    console.log('Option 1: Interactive login');
+    console.log('  glab auth login');
+    console.log('');
+    console.log('Option 2: Token-based login (recommended for headless)');
     console.log(
-      `  glab auth login --hostname ${config.hostname} --git-protocol ${config.gitProtocol}`
+      `  glab auth login --hostname ${config.hostname} --token YOUR_TOKEN`
     );
+    console.log('');
+    console.log('Option 3: Use this tool with a token');
+    console.log(`  glab-setup-git-identity --token YOUR_TOKEN`);
     return false;
   }
 

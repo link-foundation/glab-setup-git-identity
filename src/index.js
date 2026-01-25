@@ -330,6 +330,9 @@ export async function isGlabAuthenticated(options = {}) {
 /**
  * Get GitLab username from authenticated user
  *
+ * Note: This function parses the JSON response in JavaScript rather than using
+ * glab's --jq flag, as the --jq flag is not available in all glab versions.
+ *
  * @param {Object} options - Options
  * @param {string} options.hostname - GitLab hostname (optional)
  * @param {boolean} options.verbose - Enable verbose logging
@@ -342,7 +345,7 @@ export async function getGitLabUsername(options = {}) {
 
   log.debug('Getting GitLab username...');
 
-  const args = ['api', 'user', '--jq', '.username'];
+  const args = ['api', 'user'];
   if (hostname) {
     args.push('--hostname', hostname);
   }
@@ -353,7 +356,23 @@ export async function getGitLabUsername(options = {}) {
     throw new Error(`Failed to get GitLab username: ${result.stderr}`);
   }
 
-  const username = result.stdout.trim();
+  // Parse JSON response in JavaScript (glab's --jq flag is not available in all versions)
+  let userData;
+  try {
+    userData = JSON.parse(result.stdout.trim());
+  } catch (parseError) {
+    throw new Error(
+      `Failed to parse GitLab user data: ${parseError.message}. Raw output: ${result.stdout}`
+    );
+  }
+
+  const username = userData.username;
+  if (!username) {
+    throw new Error(
+      'No username found in GitLab user data. Please ensure your GitLab account has a username.'
+    );
+  }
+
   log.debug(`GitLab username: ${username}`);
 
   return username;
@@ -361,6 +380,9 @@ export async function getGitLabUsername(options = {}) {
 
 /**
  * Get primary email from GitLab user
+ *
+ * Note: This function parses the JSON response in JavaScript rather than using
+ * glab's --jq flag, as the --jq flag is not available in all glab versions.
  *
  * @param {Object} options - Options
  * @param {string} options.hostname - GitLab hostname (optional)
@@ -374,7 +396,7 @@ export async function getGitLabEmail(options = {}) {
 
   log.debug('Getting GitLab primary email...');
 
-  const args = ['api', 'user', '--jq', '.email'];
+  const args = ['api', 'user'];
   if (hostname) {
     args.push('--hostname', hostname);
   }
@@ -385,7 +407,17 @@ export async function getGitLabEmail(options = {}) {
     throw new Error(`Failed to get GitLab email: ${result.stderr}`);
   }
 
-  const email = result.stdout.trim();
+  // Parse JSON response in JavaScript (glab's --jq flag is not available in all versions)
+  let userData;
+  try {
+    userData = JSON.parse(result.stdout.trim());
+  } catch (parseError) {
+    throw new Error(
+      `Failed to parse GitLab user data: ${parseError.message}. Raw output: ${result.stdout}`
+    );
+  }
+
+  const email = userData.email;
 
   if (!email) {
     throw new Error(
@@ -401,6 +433,10 @@ export async function getGitLabEmail(options = {}) {
 /**
  * Get GitLab user information (username and primary email)
  *
+ * Note: This function makes a single API call and parses both username and email
+ * from the response, which is more efficient than calling getGitLabUsername and
+ * getGitLabEmail separately.
+ *
  * @param {Object} options - Options
  * @param {string} options.hostname - GitLab hostname (optional)
  * @param {boolean} options.verbose - Enable verbose logging
@@ -408,10 +444,49 @@ export async function getGitLabEmail(options = {}) {
  * @returns {Promise<{username: string, email: string}>} User information
  */
 export async function getGitLabUserInfo(options = {}) {
-  const [username, email] = await Promise.all([
-    getGitLabUsername(options),
-    getGitLabEmail(options),
-  ]);
+  const { hostname, verbose = false, logger = console } = options;
+  const log = createDefaultLogger({ verbose, logger });
+
+  log.debug('Getting GitLab user information...');
+
+  const args = ['api', 'user'];
+  if (hostname) {
+    args.push('--hostname', hostname);
+  }
+
+  const result = await $`glab ${args}`.run({ capture: true });
+
+  if (result.code !== 0) {
+    throw new Error(`Failed to get GitLab user info: ${result.stderr}`);
+  }
+
+  // Parse JSON response in JavaScript (glab's --jq flag is not available in all versions)
+  let userData;
+  try {
+    userData = JSON.parse(result.stdout.trim());
+  } catch (parseError) {
+    throw new Error(
+      `Failed to parse GitLab user data: ${parseError.message}. Raw output: ${result.stdout}`
+    );
+  }
+
+  const username = userData.username;
+  const email = userData.email;
+
+  if (!username) {
+    throw new Error(
+      'No username found in GitLab user data. Please ensure your GitLab account has a username.'
+    );
+  }
+
+  if (!email) {
+    throw new Error(
+      'No email found on GitLab account. Please set a primary email in your GitLab settings.'
+    );
+  }
+
+  log.debug(`GitLab username: ${username}`);
+  log.debug(`GitLab primary email: ${email}`);
 
   return { username, email };
 }

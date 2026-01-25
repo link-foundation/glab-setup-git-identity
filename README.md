@@ -13,15 +13,23 @@ A tool to setup git identity based on current GitLab user.
 Instead of manually running:
 
 ```bash
-glab auth login --hostname gitlab.com --git-protocol https
+# Authenticate with GitLab (interactive mode - no extra flags)
+glab auth login
+
+# Or for non-interactive mode with a token:
+# glab auth login --hostname gitlab.com --git-protocol https --token YOUR_TOKEN
+
 glab auth git-credential # For HTTPS authentication helper
 
-USERNAME=$(glab api user --jq '.username')
-EMAIL=$(glab api user --jq '.email')
+# Get user info (requires jq to be installed)
+USERNAME=$(glab api user | jq -r '.username')
+EMAIL=$(glab api user | jq -r '.email')
 
 git config --global user.name "$USERNAME"
 git config --global user.email "$EMAIL"
 ```
+
+> **Note for manual commands**: The commands above require `jq` to be installed (`apt install jq` or `brew install jq`). The `glab api` command does not have a built-in `--jq` flag - you must pipe output to the external `jq` tool.
 
 You can simply run:
 
@@ -163,7 +171,61 @@ The tool runs `glab auth login` automatically, followed by configuring git to us
 If automatic authentication fails, you can run the commands manually:
 
 ```bash
-glab auth login --hostname gitlab.com --git-protocol https
+glab auth login
+```
+
+### Authentication in Docker/Server Environments (Headless)
+
+When running in Docker containers or on remote servers without a browser, `glab auth login` will display a URL to open but fail to launch a browser:
+
+```
+Failed opening a browser at https://gitlab.com/oauth/authorize?...
+Encountered error: exec: "xdg-open": executable file not found in $PATH
+Try entering the URL in your browser manually.
+```
+
+**To complete authentication in headless environments:**
+
+1. **Copy the authorization URL** displayed by glab and open it in your local browser
+2. Complete the GitLab OAuth flow in your browser
+3. You'll be redirected to a URL like: `http://localhost:7171/auth/redirect?code=...&state=...`
+4. **Use `curl` to send the redirect URL back to glab**:
+
+```bash
+# Method 1: Using screen (recommended for Docker)
+# Terminal 1: Start glab auth in screen
+screen -S glab-auth
+glab auth login
+# Press Ctrl+A, D to detach from screen
+
+# Terminal 2: After completing OAuth in browser, send the redirect URL
+curl -L "http://localhost:7171/auth/redirect?code=YOUR_CODE&state=YOUR_STATE"
+
+# Return to screen to see auth completion
+screen -r glab-auth
+```
+
+```bash
+# Method 2: Using SSH port forwarding (for remote servers)
+# On your local machine, forward the callback port:
+ssh -L 7171:localhost:7171 user@remote-server
+
+# Then on the server, run glab auth login
+# The OAuth redirect will go through the SSH tunnel to your local machine
+```
+
+**Alternatively, use token-based authentication** (recommended for CI/CD and automation):
+
+```bash
+# Generate a Personal Access Token at:
+# https://gitlab.com/-/profile/personal_access_tokens
+# Required scopes: api, write_repository
+
+# Then authenticate non-interactively:
+glab auth login --hostname gitlab.com --token YOUR_TOKEN
+
+# Or with this tool:
+glab-setup-git-identity --token YOUR_TOKEN
 ```
 
 ### Successful Run
