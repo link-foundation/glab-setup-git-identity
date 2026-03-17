@@ -62,7 +62,10 @@ export async function getGlabPath(options = {}) {
   const command = process.platform === 'win32' ? 'where' : 'which';
 
   try {
-    const result = await $`${command} glab`.run({ capture: true });
+    const result = await $`${command} glab`.run({
+      capture: true,
+      mirror: false,
+    });
 
     if (result.code !== 0 || !result.stdout) {
       throw new Error(
@@ -238,7 +241,7 @@ export async function runGlabAuthSetupGit(options = {}) {
     try {
       const existingResult =
         await $`git config --global --get credential.${credentialUrl}.helper`.run(
-          { capture: true }
+          { capture: true, mirror: false }
         );
 
       if (existingResult.code === 0 && existingResult.stdout && !force) {
@@ -262,6 +265,7 @@ export async function runGlabAuthSetupGit(options = {}) {
     try {
       await $`git config --global credential.${credentialUrl}.helper ""`.run({
         capture: true,
+        mirror: false,
       });
     } catch {
       // Ignore errors if not set
@@ -272,7 +276,7 @@ export async function runGlabAuthSetupGit(options = {}) {
 
     const result =
       await $`git config --global --add credential.${credentialUrl}.helper ${credentialHelper}`.run(
-        { capture: true }
+        { capture: true, mirror: false }
       );
 
     if (result.code !== 0) {
@@ -312,10 +316,26 @@ export async function isGlabAuthenticated(options = {}) {
   }
 
   try {
-    const result = await $`glab ${args}`.run({ capture: true });
+    const result = await $`glab ${args}`.run({
+      capture: true,
+      mirror: false,
+    });
 
     if (result.code !== 0) {
       log.debug(`GitLab CLI is not authenticated: ${result.stderr}`);
+      return false;
+    }
+
+    // glab auth status may exit with code 0 even when not properly authenticated.
+    // Check stderr for indicators of auth failure (e.g., "No token provided", "401 Unauthorized").
+    const output = (result.stderr || '') + (result.stdout || '');
+    if (
+      /no token provided/i.test(output) ||
+      /401\s*unauthorized/i.test(output)
+    ) {
+      log.debug(
+        `GitLab CLI reports success but token is missing or invalid: ${output.trim()}`
+      );
       return false;
     }
 
@@ -350,7 +370,7 @@ export async function getGitLabUsername(options = {}) {
     args.push('--hostname', hostname);
   }
 
-  const result = await $`glab ${args}`.run({ capture: true });
+  const result = await $`glab ${args}`.run({ capture: true, mirror: false });
 
   if (result.code !== 0) {
     throw new Error(`Failed to get GitLab username: ${result.stderr}`);
@@ -401,7 +421,7 @@ export async function getGitLabEmail(options = {}) {
     args.push('--hostname', hostname);
   }
 
-  const result = await $`glab ${args}`.run({ capture: true });
+  const result = await $`glab ${args}`.run({ capture: true, mirror: false });
 
   if (result.code !== 0) {
     throw new Error(`Failed to get GitLab email: ${result.stderr}`);
@@ -454,7 +474,7 @@ export async function getGitLabUserInfo(options = {}) {
     args.push('--hostname', hostname);
   }
 
-  const result = await $`glab ${args}`.run({ capture: true });
+  const result = await $`glab ${args}`.run({ capture: true, mirror: false });
 
   if (result.code !== 0) {
     throw new Error(`Failed to get GitLab user info: ${result.stderr}`);
@@ -512,6 +532,7 @@ export async function setGitConfig(key, value, options = {}) {
 
   const result = await $`git config ${scopeFlag} ${key} ${value}`.run({
     capture: true,
+    mirror: false,
   });
 
   if (result.code !== 0) {
@@ -539,7 +560,10 @@ export async function getGitConfig(key, options = {}) {
 
   log.debug(`Getting git config ${key} (${scope})`);
 
-  const result = await $`git config ${scopeFlag} ${key}`.run({ capture: true });
+  const result = await $`git config ${scopeFlag} ${key}`.run({
+    capture: true,
+    mirror: false,
+  });
 
   if (result.code !== 0) {
     log.debug(`Git config ${key} not set`);

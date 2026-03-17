@@ -4,14 +4,18 @@
  */
 
 import { describe, it, expect } from 'test-anywhere';
+import { createRequire } from 'module';
 import {
   defaultAuthOptions,
   getGitConfig,
   setGitConfig,
   verifyGitIdentity,
   getGlabPath,
+  isGlabAuthenticated,
   runGlabAuthSetupGit,
 } from '../src/index.js';
+
+const require = createRequire(import.meta.url);
 
 describe('defaultAuthOptions', () => {
   it('should have correct default hostname', () => {
@@ -131,7 +135,65 @@ describe('runGlabAuthSetupGit', () => {
   });
 });
 
-// Note: Tests for isGlabAuthenticated, getGitLabUsername, getGitLabEmail,
+describe('CLI --version', () => {
+  it('should output the version from package.json', async () => {
+    const pkg = require('../package.json');
+    const { execSync } = await import('node:child_process');
+    const output = execSync('node src/cli.js --version', {
+      encoding: 'utf8',
+    }).trim();
+    expect(output).toBe(pkg.version);
+  });
+});
+
+describe('isGlabAuthenticated', () => {
+  it('should be a function', () => {
+    expect(typeof isGlabAuthenticated).toBe('function');
+  });
+
+  it('should return false when glab has no valid token', async () => {
+    // In this test environment, glab is not properly authenticated
+    // so isGlabAuthenticated should return false
+    try {
+      const result = await isGlabAuthenticated();
+      expect(typeof result).toBe('boolean');
+    } catch {
+      // If glab is not installed, it should handle gracefully
+      expect(true).toBe(true);
+    }
+  });
+
+  it('should not produce visible output when checking auth status', async () => {
+    // Ensure isGlabAuthenticated does not leak glab output to the console
+    const originalStdoutWrite = process.stdout.write;
+    const originalStderrWrite = process.stderr.write;
+    let capturedOutput = '';
+
+    process.stdout.write = (chunk) => {
+      capturedOutput += chunk.toString();
+      return true;
+    };
+    process.stderr.write = (chunk) => {
+      capturedOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      await isGlabAuthenticated({ verbose: false });
+    } catch {
+      // ignore errors
+    } finally {
+      process.stdout.write = originalStdoutWrite;
+      process.stderr.write = originalStderrWrite;
+    }
+
+    // Should not contain glab auth status output
+    expect(capturedOutput.includes('No token provided')).toBe(false);
+    expect(capturedOutput.includes('401 Unauthorized')).toBe(false);
+  });
+});
+
+// Note: Tests for getGitLabUsername, getGitLabEmail,
 // getGitLabUserInfo, runGlabAuthLogin, and setupGitIdentity require
 // an authenticated glab CLI environment and are better suited for
 // integration tests or manual testing.

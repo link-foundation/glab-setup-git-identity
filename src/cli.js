@@ -6,6 +6,7 @@
  * Command-line interface for setting up git identity based on GitLab user
  */
 
+import { createRequire } from 'module';
 import { makeConfig } from 'lino-arguments';
 import {
   setupGitIdentity,
@@ -16,6 +17,11 @@ import {
   defaultAuthOptions,
 } from './index.js';
 import { $ } from 'command-stream';
+
+// Read version from package.json explicitly (yargs auto-detection may fail when installed globally)
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json');
+const packageVersion = packageJson.version;
 
 // Parse command-line arguments with environment variable and .lenv support
 const config = makeConfig({
@@ -145,7 +151,7 @@ const config = makeConfig({
       )
       .help('h')
       .alias('h', 'help')
-      .version()
+      .version(packageVersion)
       .strict(),
 });
 
