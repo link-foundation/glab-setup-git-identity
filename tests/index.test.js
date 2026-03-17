@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'test-anywhere';
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import {
   defaultAuthOptions,
   getGitConfig,

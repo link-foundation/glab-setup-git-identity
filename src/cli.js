@@ -6,7 +6,7 @@
  * Command-line interface for setting up git identity based on GitLab user
  */
 
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 import { makeConfig } from 'lino-arguments';
 import {
   setupGitIdentity,
